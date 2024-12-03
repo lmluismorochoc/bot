@@ -99,7 +99,7 @@ export default class BotController {
         const actualTime = moment().tz(timezone);
         const startTime = moment()
           .tz(timezone)
-          .set({ hour: 7, minute: 0, second: 0, millisecond: 0 });
+          .set({ hour: 0, minute: 0, second: 0, millisecond: 0 });
         const endTime = moment()
           .tz(timezone)
           .set({ hour: 24, minute: 0, second: 0, millisecond: 0 });
