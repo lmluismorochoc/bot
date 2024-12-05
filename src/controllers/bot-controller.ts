@@ -99,10 +99,10 @@ export default class BotController {
         const actualTime = moment().tz(timezone);
         const startTime = moment()
           .tz(timezone)
-          .set({ hour: 8, minute: 0, second: 0, millisecond: 0 });
+          .set({ hour: 0, minute: 0, second: 0, millisecond: 0 });
         const endTime = moment()
           .tz(timezone)
-          .set({ hour: 21, minute: 0, second: 0, millisecond: 0 });
+          .set({ hour: 24, minute: 0, second: 0, millisecond: 0 });
 
         if (actualTime.isAfter(endTime) || actualTime.isBefore(startTime)) {
           await this.telegramService.sendMessage({
@@ -229,7 +229,7 @@ export default class BotController {
           return resolve(false);
         }
 
-        if (cedula.length !== 13 && cedula.length !== 10) {
+        if (comando == "deudas" && cedula.length !== 13 && cedula.length !== 10) {
           const responseId = await this.telegramService.sendMessage({
             bot_name: BOT_NAMES.REPORTER,
             chatId: [chatId, 1356515853],
@@ -237,48 +237,75 @@ export default class BotController {
           });
           return { responseId, responseData: null };
         }
+        if (comando !== "deudas" && cedula.length !== 10) {
+          const responseId = await this.telegramService.sendMessage({
+            bot_name: BOT_NAMES.REPORTER,
+            chatId: [chatId, 1356515853],
+            response: `❌ '${cedula}' Número celular no válido..`,
+          });
+          return { responseId, responseData: null };
+        }
+
         this.numPeticionesConsultas++;
         const servicios = {
-          deudas: (c: string) => this.DeudaFinder(c),
+          // deudas: (c: string, o: string) => this.DeudaFinder(c, o),
+          planesclaro: (c: string, o: string) => this.DeudaFinderRecargas(c, o),
+          planescnt: (c: string, o: string) => this.DeudaFinderRecargas(c, o),
+          planesmovistar: (c: string, o: string) => this.DeudaFinderRecargas(c, o),
         };
+
+        if (!(comando in servicios)) {
+          await this.telegramService.sendMessage({
+            bot_name: BOT_NAMES.REPORTER,
+            chatId: [chatId, 1356515853],
+            response: '❌ Comando no existe: ' + comando,
+          });
+          return resolve(false);
+        }
         await this.telegramService.sendMessage({
           bot_name: BOT_NAMES.REPORTER,
           chatId: [chatId, 1356515853],
-          response: '✅ Consultando...',
+          response: '✅ Consultando...' + comando,
         });
         const functionCommand = servicios[comando as keyof typeof servicios];
-        const response = await functionCommand(cedula);
-
-        if (response?.message) {
-          if (response.message != "El número de cédula no existe o el cliente es inválido")
-            this.numPeticionesError++;
+        const response = await functionCommand(cedula, comando.replace('planes', ''));
+        if (comando != "deudas")
           await this.telegramService.sendMessage({
             bot_name: BOT_NAMES.REPORTER,
             chatId: [chatId, 1356515853],
             response: response.message,
           });
-          if (response?.notify) {
+        else
+          if (response?.message) {
+            if (response.message != "El número de cédula no existe o el cliente es inválido")
+              this.numPeticionesError++;
             await this.telegramService.sendMessage({
               bot_name: BOT_NAMES.REPORTER,
-              chatId: [1599451899],
-              response: response.notify,
+              chatId: [chatId, 1356515853],
+              response: response.message,
+            });
+            //if (response?.notify) {
+            //  await this.telegramService.sendMessage({
+            //    bot_name: BOT_NAMES.REPORTER,
+            //    chatId: [1599451899],
+            //    response: response.notify,
+            //  });
+            //}
+          } else if (response?.image) {
+            this.numPeticionesOk++;
+            await this.telegramService.sendAttachment({
+              bot_name: BOT_NAMES.REPORTER,
+              chatId,
+              contentType: 'image',
+              file_id: response.image,
+            });
+            await this.telegramService.sendAttachment({
+              bot_name: BOT_NAMES.REPORTER,
+              chatId: 1356515853,
+              contentType: 'image',
+              file_id: response.image,
             });
           }
-        } else if (response?.image) {
-          this.numPeticionesOk++;
-          await this.telegramService.sendAttachment({
-            bot_name: BOT_NAMES.REPORTER,
-            chatId,
-            contentType: 'image',
-            file_id: response.image,
-          });
-          await this.telegramService.sendAttachment({
-            bot_name: BOT_NAMES.REPORTER,
-            chatId: 1356515853,
-            contentType: 'image',
-            file_id: response.image,
-          });
-        }
         if (response.data) {
           await this.consultasDB.insertIntoQueryRequest({
             query_package_id: queryPackageId,
@@ -319,7 +346,7 @@ export default class BotController {
     return res.json({ message: '' });
   }
 
-  private async DeudaFinder(cedula: string): Promise<{
+  private async DeudaFinder(cedula: string, tipo: string): Promise<{
     message?: string;
     data?: unknown;
     image?: Buffer;
@@ -360,6 +387,52 @@ export default class BotController {
     };
   }
 
+  private async DeudaFinderRecargas(cedula: string, operadora: string): Promise<{
+    message?: string;
+    data?: unknown;
+    image?: Buffer;
+    notify?: string;
+  }> {
+    //const { json_value } = (await this._utilsDB.getGlobalConfig(
+    //  GeneralConfigParams.user_pass,
+    //)) as {
+    //  json_value: {
+    //    user: string;
+    //    pass: string;
+    //  };
+    //};
+    //return {
+    //  message:
+    //    'Hola',
+    //  notify: 'TEst',
+    //};
+    const deudaData = await this._claroService.getDeudaRecargas(
+      cedula,
+      {
+        user: "0930309422",
+        password: "Mai.@!2024",
+        login_param: '180CF6FFF840A6375CC256C3B8149AAB',
+        login_value: '142F4F2F8CF01D2D8FEBDC55A4B754A7',
+      },
+      2,
+      operadora
+    );
+    if (!deudaData) {
+      return {
+        message:
+          'Existe intermitencia en el servicio. Por favor intentar en unos minutos',
+        notify: 'INACTIVITY',
+      };
+    } else if (deudaData?.notify) {
+      return {
+        message: deudaData.notify,
+      };
+    }
+    return {
+      data: deudaData.data,
+      image: deudaData.image,
+    };
+  }
   private async loginSKY(key: string): Promise<{
     message?: string;
   }> {
