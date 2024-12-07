@@ -245,7 +245,7 @@ export class ClaroService {
       let data = new FormData();
 
       const headers = {
-        'Cookie': 'ASP.NET_SessionId=av5a0avnstmiyfy5c5jyfx5k; VALCC=faRxsModEsg=; VALN=XrgSWDcYYLVbcMoAGopxfr2uskhvvYl6; VALS=i1+2e6gLo+I=; VALC=29j2k8/1m/c=; VALST=DoVBFfg9FRA=; VALU=wPR5pVRWRLw=; VALSS=0i7OTB+xtaBlVh882IbxGOQ+2+9iU4bIks9tiJ9tHT5394RHjlM+3A==; VALSF=2LlxMolBBdUi06zEdyycc6tWnbYvY+6qqUSBTfXcNaU=', // Tu cookie aquí
+        'Cookie': 'ASP.NET_SessionId=ofajb1wnqiyo3ear1esu0c05; VALCC=faRxsModEsg=; VALN=XrgSWDcYYLVbcMoAGopxfr2uskhvvYl6; VALS=i1+2e6gLo+I=; VALC=29j2k8/1m/c=; VALST=DoVBFfg9FRA=; VALU=wPR5pVRWRLw=; VALSS=B8EfwP/KF3NPDAk6FKZitB5OjMa9YTIYPXCxe9kFBUTYacYXWFCKyg==; VALSF=7rHTe5q2OeYi06zEdyycc6CWcx6ckiOsM++OGo0miSQ=', // Tu cookie aquí
         'Content-Type': 'multipart/form-data; boundary=--------------------------330610164082089315997925',
         ...data.getHeaders()
       };
@@ -272,7 +272,7 @@ export class ClaroService {
       });
       const $ = cheerio.load(deudaHTML);
 
-      //  console.log(deudaHTML);
+      //console.log(deudaHTML.data);
       const formAction = $('form').attr('action');
 
 
@@ -319,7 +319,7 @@ export class ClaroService {
       return {
         image: null,
         data: null,
-        notify: errorMsg ? errorMsg : "Cliente: " + nombre + "\nDeuda: " + valor,
+        notify: errorMsg ? "**Número:** " + identificacion + "\n**Mensaje:** " + errorMsg : "**Número:** " + identificacion + "\n**Cliente:** " + nombre + "\n**Deuda**: " + valor,
       };
     } catch (err) {
       console.log(identificacion, err.message);

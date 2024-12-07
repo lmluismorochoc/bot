@@ -249,9 +249,9 @@ export default class BotController {
         this.numPeticionesConsultas++;
         const servicios = {
           // deudas: (c: string, o: string) => this.DeudaFinder(c, o),
-          planesclaro: (c: string, o: string) => this.DeudaFinderRecargas(c, o),
-          planescnt: (c: string, o: string) => this.DeudaFinderRecargas(c, o),
-          planesmovistar: (c: string, o: string) => this.DeudaFinderRecargas(c, o),
+          claro: (c: string, o: string) => this.DeudaFinderRecargas(c, o),
+          cnt: (c: string, o: string) => this.DeudaFinderRecargas(c, o),
+          movistar: (c: string, o: string) => this.DeudaFinderRecargas(c, o),
         };
 
         if (!(comando in servicios)) {

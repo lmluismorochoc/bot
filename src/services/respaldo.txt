@@ -1,0 +1,60 @@
+ if (formAction.includes('Login.aspx')) {
+        const cookies = deudaHTML.config.headers.Cookie;
+        const formDataLogin: { [key: string]: any } = {};
+        formDataLogin['ctl00$MainContent$LoginUser$UserName'] = credentials.user; //cnt 2652
+        formDataLogin['ctl00$MainContent$LoginUser$Password'] = credentials.password; //cnt 2652
+        formDataLogin['__EVENTTARGET'] = 'ctl00$MainContent$LoginUser$LoginButton'; //cnt 2652
+        formDataLogin['__VIEWSTATE'] = '/wEPDwULLTEzMTM3NTkyMDBkZHW3+l8TNE6q++3leF+kC2JYTfJNToUZxyfYmo+/G0fX'; //cnt 2652
+        formDataLogin['__EVENTVALIDATION'] = '/wEdAAQTtll6F90chS77zpvlN6/brVJzD9epthGmOWrcxXKP7u1vquycB/s6+IJJa4hgd+gJC0fyV4ZBOIwKeEy7g7cRSLdjcdmQ/vpuQZ0oed9J08/T7i4Q++Qz4kSUwHwauZM='; //cnt 2652
+
+        const headersLogin = {
+          'Cookie': cookies,
+          referer: 'https://www.redcargamovil.com/Account/Login.aspx?s=s'
+,
+          ...data.getHeaders()
+        };
+        const loginhtml = await this.restClient.callService({
+          baseURL: "https://www.redcargamovil.com",
+          service: '/Account/Login.aspx?s=s',
+          method: 'post',
+          body: formDataLogin,
+          headers: headersLogin,
+          full_response: true
+        });
+        console.log("🚀 ~ file: claro-service.ts:278 ~ ClaroService ~ identificacion:", {
+          baseURL: "https://www.redcargamovil.com",
+          service: '/Account/Login.aspx?s=s',
+          method: 'post',
+          body: formDataLogin,
+          headers: headersLogin,
+        })
+        const formDatadef: { [key: string]: any } = {};
+        $('form input').each((_: any, input: any) => {
+          const name = $(input).attr('name');
+          const value = $(input).attr('value') || '';
+          if (name) {
+            formDatadef[name] = value;
+          }
+        });
+        const headersdef = {
+          'Cookie': loginhtml.config.headers.Cookie,
+          ...data.getHeaders(),
+          referer: 'https://www.redcargamovil.com/Account/Login.aspx?s=s'
+        };
+        const logindef = await this.restClient.callService({
+          baseURL: "https://www.redcargamovil.com",
+          service: 'Account/Default.aspx',
+          method: 'get',
+          body: formDatadef,
+          headers: headersdef,
+        });
+        console.log({
+          baseURL: "https://www.redcargamovil.com",
+          service: '/Account/Default.aspx',
+          method: 'get',
+          body: formDatadef,
+          headers: headersdef,
+        })
+        console.log(logindef)
+        return
+      }
