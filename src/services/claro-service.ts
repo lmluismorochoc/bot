@@ -26,6 +26,7 @@ export class ClaroService {
   private restClient = new RestClientService();
   private utilsDB = new UtilsDB();
   private keyRecargas = '';
+  private numero = 0;
   constructor() {
     this.restClient.setupClient();
   }
@@ -247,28 +248,9 @@ export class ClaroService {
 
 
       let data = new FormData();
-      let restarLogin = false;
       if (this.keyRecargas == '') {
-        restarLogin = true;
-      } else {
-
-        const deudaHTML = await this.restClient.callService({
-          baseURL: "https://www.redcargamovil.com",
-          service: "/Account/Default.aspx",
-          method: 'post',
-          body: data,
-          headers: {
-            'Cookie': this.keyRecargas,
-          },
-        });
-        const $ = cheerio.load(deudaHTML);
-        const formAction = $('form').attr('action');
-        if (formAction.includes('Login.aspx')) {
-          restarLogin = true;
-        }
-        console.log("🚀 ~ file: claro-service.ts:300 ~ ClaroService ~ formAction:", formAction)
-      }
-      if (restarLogin) {
+        this.numero++;
+        console.log(new Date() + " --- Creando nueva llave " + this.numero)
         const options = {
           'method': 'POST',
           'url': 'https://www.redcargamovil.com/Account/Login.aspx',
@@ -330,7 +312,10 @@ export class ClaroService {
       //console.log(deudaHTML.data);
       const formAction = $('form').attr('action');
 
-
+      if (formAction.includes('Login.aspx')) {
+        this.keyRecargas = '';
+        return null;
+      }
 
       // Crea un objeto para almacenar los datos del formulario
       const formData: { [key: string]: any } = {};
@@ -375,6 +360,7 @@ export class ClaroService {
         notify: errorMsg ? "**Número:** " + identificacion + "\n**Mensaje:** " + errorMsg : "**Número:** " + identificacion + "\n**Cliente:** " + nombre + "\n**Deuda**: " + valor,
       };
     } catch (err) {
+      this.keyRecargas = '';
       console.log(identificacion, err.message);
       return null;
     }

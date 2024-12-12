@@ -123,7 +123,6 @@ export default class BotController {
           case '/deudas':
             commandFormatExample =
               'Envié el número de cédula de la siguiente manera:\ndeudas XXXXXXXXXX ';
-          case 'ayuda':
             break;
           default:
             break;
