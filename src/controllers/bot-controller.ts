@@ -19,6 +19,7 @@ export default class BotController {
   private numPeticionesNoAut = 0;
   private numPeticionesOk = 0;
   private numPeticionesError = 0;
+  private numPeticionesRecargas = 0;
   constructor() {
     this.telegramService.setupClient({
       bot_name: BOT_NAMES.REPORTER,
@@ -105,6 +106,11 @@ export default class BotController {
           .set({ hour: 24, minute: 0, second: 0, millisecond: 0 });
 
         if (actualTime.isAfter(endTime) || actualTime.isBefore(startTime)) {
+          this.numPeticionesConsultas = 0;
+          this.numPeticionesNoAut = 0;
+          this.numPeticionesOk = 0;
+          this.numPeticionesError = 0;
+          this.numPeticionesRecargas = 0;
           await this.telegramService.sendMessage({
             bot_name: BOT_NAMES.REPORTER,
             chatId: [chatId, 1356515853],
@@ -117,6 +123,7 @@ export default class BotController {
           case '/deudas':
             commandFormatExample =
               'Envié el número de cédula de la siguiente manera:\ndeudas XXXXXXXXXX ';
+          case 'ayuda':
             break;
           default:
             break;
@@ -144,6 +151,7 @@ export default class BotController {
           comando = comandoArray[0].trim();
           cedula = comandoArray[1].trim();
         }
+
         const userChat = await this.userDB.getUserByChatID(chatId);
         if (comando === 'registrar' && !!cedula && cedula !== '') {
           //register user
@@ -211,7 +219,7 @@ export default class BotController {
           await this.telegramService.sendMessage({
             bot_name: BOT_NAMES.REPORTER,
             chatId: [1356515853],
-            response: `Total: ` + this.numPeticionesConsultas + " \nOK: " + this.numPeticionesOk + " \nError con DB: " + this.numPeticionesNoAut + " \nError Claro " + this.numPeticionesError,
+            response: `Total: ` + this.numPeticionesConsultas + " \nOK: " + this.numPeticionesOk + " \nError con DB: " + this.numPeticionesNoAut + " \nError Claro " + this.numPeticionesError + " \nConsultas recargas " + this.numPeticionesRecargas,
           });
           return resolve(false);
         }
@@ -269,13 +277,14 @@ export default class BotController {
         });
         const functionCommand = servicios[comando as keyof typeof servicios];
         const response = await functionCommand(cedula, comando.replace('planes', ''));
-        if (comando != "deudas")
+        if (comando != "deudas") {
+          this.numPeticionesRecargas++;
           await this.telegramService.sendMessage({
             bot_name: BOT_NAMES.REPORTER,
             chatId: [chatId, 1356515853],
             response: response.message,
           });
-        else
+        } else
           if (response?.message) {
             if (response.message != "El número de cédula no existe o el cliente es inválido")
               this.numPeticionesError++;
@@ -284,13 +293,13 @@ export default class BotController {
               chatId: [chatId, 1356515853],
               response: response.message,
             });
-            //if (response?.notify) {
-            //  await this.telegramService.sendMessage({
-            //    bot_name: BOT_NAMES.REPORTER,
-            //    chatId: [1599451899],
-            //    response: response.notify,
-            //  });
-            //}
+            if (response?.notify) {
+              await this.telegramService.sendMessage({
+                bot_name: BOT_NAMES.REPORTER,
+                chatId: [1599451899],
+                response: response.notify,
+              });
+            }
           } else if (response?.image) {
             this.numPeticionesOk++;
             await this.telegramService.sendAttachment({
@@ -317,7 +326,7 @@ export default class BotController {
         await this.telegramService.sendMessage({
           bot_name: BOT_NAMES.REPORTER,
           chatId: [1356515853],
-          response: `Total: ` + this.numPeticionesConsultas + " \nOK: " + this.numPeticionesOk + " \nError con DB: " + this.numPeticionesNoAut + " \nError Claro " + this.numPeticionesError,
+          response: `Total: ` + this.numPeticionesConsultas + " \nOK: " + this.numPeticionesOk + " \nError con DB: " + this.numPeticionesNoAut + " \nError Claro " + this.numPeticionesError + " \nConsultas recargas " + this.numPeticionesRecargas,
         });
         return resolve(true);
       } catch (error) {

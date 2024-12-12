@@ -8,7 +8,8 @@ import puppeteer from 'puppeteer';
 import FormData from 'form-data';
 const cheerio = require('cheerio');
 
-import axios from 'axios';
+const request = require('request-promise-native');
+
 
 async function htmlToImageBuffer(htmlString: string) {
   const browser = await puppeteer.launch();
@@ -24,6 +25,7 @@ export class ClaroService {
   private BASE_URL = 'https://portalcrmdas.claro.com.ec';
   private restClient = new RestClientService();
   private utilsDB = new UtilsDB();
+  private keyRecargas = '';
   constructor() {
     this.restClient.setupClient();
   }
@@ -242,10 +244,63 @@ export class ClaroService {
     notify?: string;
   }> {
     try {
-      let data = new FormData();
 
+
+      let data = new FormData();
+      let restarLogin = false;
+      if (this.keyRecargas == '') {
+        restarLogin = true;
+      } else {
+
+        const deudaHTML = await this.restClient.callService({
+          baseURL: "https://www.redcargamovil.com",
+          service: "/Account/Default.aspx",
+          method: 'post',
+          body: data,
+          headers: {
+            'Cookie': this.keyRecargas,
+          },
+        });
+        const $ = cheerio.load(deudaHTML);
+        const formAction = $('form').attr('action');
+        if (formAction.includes('Login.aspx')) {
+          restarLogin = true;
+        }
+        console.log("🚀 ~ file: claro-service.ts:300 ~ ClaroService ~ formAction:", formAction)
+      }
+      if (restarLogin) {
+        const options = {
+          'method': 'POST',
+          'url': 'https://www.redcargamovil.com/Account/Login.aspx',
+          'headers': {},
+          formData: {
+            'ctl00$MainContent$LoginUser$UserName': credentials.user,
+            'ctl00$MainContent$LoginUser$Password': credentials.password,
+            '__EVENTTARGET': 'ctl00$MainContent$LoginUser$LoginButton',
+            '__VIEWSTATE': '/wEPDwULLTEzMTM3NTkyMDBkZHW3+l8TNE6q++3leF+kC2JYTfJNToUZxyfYmo+/G0fX',
+            '__EVENTVALIDATION': '/wEdAAQTtll6F90chS77zpvlN6/brVJzD9epthGmOWrcxXKP7u1vquycB/s6+IJJa4hgd+gJC0fyV4ZBOIwKeEy7g7cRSLdjcdmQ/vpuQZ0oed9J08/T7i4Q++Qz4kSUwHwauZM='
+          },
+          resolveWithFullResponse: true,
+          simple: false
+        };
+        const response = await request(options);
+
+        try {
+          if (response.headers['set-cookie']) {
+            const cookies = response.headers['set-cookie'];
+            const cookiesString = cookies
+              .map((cookie: string) => cookie.split(';')[0])
+              .join('; ');
+            this.keyRecargas = cookiesString;
+          } else {
+            console.log("No cookies received");
+          }
+        } catch (error) {
+          console.error("Error occurred in login:", error);
+        }
+      }
       const headers = {
-        'Cookie': 'ASP.NET_SessionId=ofajb1wnqiyo3ear1esu0c05; VALCC=faRxsModEsg=; VALN=XrgSWDcYYLVbcMoAGopxfr2uskhvvYl6; VALS=i1+2e6gLo+I=; VALC=29j2k8/1m/c=; VALST=DoVBFfg9FRA=; VALU=wPR5pVRWRLw=; VALSS=B8EfwP/KF3NPDAk6FKZitB5OjMa9YTIYPXCxe9kFBUTYacYXWFCKyg==; VALSF=7rHTe5q2OeYi06zEdyycc6CWcx6ckiOsM++OGo0miSQ=', // Tu cookie aquí
+        'Cookie': this.keyRecargas,
         'Content-Type': 'multipart/form-data; boundary=--------------------------330610164082089315997925',
         ...data.getHeaders()
       };
@@ -289,7 +344,6 @@ export class ClaroService {
       formData['ctl00$MainContent$cboOperador'] = idServicios; //cnt 2652
       formData['ctl00$MainContent$txtReferencia1'] = identificacion;
 
-      console.log("🚀 ~ file: claro-service.ts:311 ~ ClaroService ~ identificacion:", identificacion)
       // Imprime los datos del formulario
 
 
@@ -300,7 +354,6 @@ export class ClaroService {
         body: formData,
         headers,
       });
-      console.log("🚀 ~ file: claro-service.ts:324 ~ ClaroService ~ deudaHTMLs:", deudaHTMLs)
 
       const $$ = cheerio.load(deudaHTMLs);
 
@@ -326,4 +379,5 @@ export class ClaroService {
       return null;
     }
   }
+
 }
