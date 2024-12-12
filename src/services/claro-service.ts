@@ -5,6 +5,11 @@ import { UtilsDB } from './db/UtilsDB';
 import qs from 'qs';
 import { JSDOM } from 'jsdom';
 import puppeteer from 'puppeteer';
+import FormData from 'form-data';
+const cheerio = require('cheerio');
+
+const request = require('request-promise-native');
+
 
 async function htmlToImageBuffer(htmlString: string) {
   const browser = await puppeteer.launch();
@@ -20,6 +25,8 @@ export class ClaroService {
   private BASE_URL = 'https://portalcrmdas.claro.com.ec';
   private restClient = new RestClientService();
   private utilsDB = new UtilsDB();
+  private keyRecargas = '';
+  private numero = 0;
   constructor() {
     this.restClient.setupClient();
   }
@@ -42,14 +49,14 @@ export class ClaroService {
         puertoPiranha: 'null',
         [login_param]: login_value,
       });
-      
+
       const loginHTML = await this.restClient.callService({
         baseURL: this.BASE_URL,
         service: '/axis/login/gee_login.jsp?919447DD52EC3C46BE7CF7A91F8DA1E8AF4F8AFC3138FD9DEEE447D8D17A993D=null&39A902204B69898D655FC51EC2FB3299DCF2C6863C02ADD58068695F63507750=null&C229CC69C0897F957454E3D198B58BED=D1USKYC5&51BA3746C95DF559FECC42F51B50EA9E=7F7A08E55B4CB32C55635481F48F4721&1CCC2D3A74ACE3B27AA6735D9A1F67F5=F918F72571B706D4BFB804C45E5E7BDBAC0D26FF7E87267AF961A8DCAC46B7A82FEE309C207345F3CC49D1BFB9691D41&BC3F13FDA2DBD5642CF909BEE3667EAA077A81C99F6C1FD06FAAA6B761E04BF6=142F4F2F8CF01D2D8FEBDC55A4B754A7&loginAxis=LOGIN',
         method: 'post',
         headers,
         body: data,
-      }); 
+      });
 
       const dom = new JSDOM(loginHTML);
       const document = dom.window.document;
@@ -81,7 +88,7 @@ export class ClaroService {
         (cookieLine: string) => cookieLine.split(';')[0],
       );
       const cookie = setCookie.join('; ');
-    //  console.log(cookie);
+      //  console.log(cookie);
       await this.utilsDB.updateGlobalConfig({
         config: GeneralConfigParams.cl_headers,
         json_value: {
@@ -191,22 +198,22 @@ export class ClaroService {
         await new Promise((resolve) => {
           setTimeout(() => {
             resolve(true);
-          }, 5*1000);
+          }, 5 * 1000);
         });
         await this.initLogin(credentials);
         await new Promise((resolve) => {
           setTimeout(() => {
             resolve(true);
-          }, 2*1000);
+          }, 2 * 1000);
         });
         return this.getDeudaResumen(identificacion, credentials, tries - 1);
       }
-     
+
       if (err.message === 'INACTIVITY' && tries > 0) {
         await new Promise((resolve) => {
           setTimeout(() => {
             resolve(true);
-          }, 10*1000);
+          }, 10 * 1000);
         });
 
         // await this.initLogin(credentials);
@@ -226,4 +233,137 @@ export class ClaroService {
       return null;
     }
   }
+
+  async getDeudaRecargas(
+    identificacion: string,
+    credentials: ClaroCredentials,
+    tries: number,
+    operadora: string
+  ): Promise<{
+    image: Buffer;
+    data: { [k: string]: string }[];
+    notify?: string;
+  }> {
+    try {
+
+
+      let data = new FormData();
+      if (this.keyRecargas == '') {
+        this.numero++;
+        console.log(new Date() + " --- Creando nueva llave " + this.numero)
+        const options = {
+          'method': 'POST',
+          'url': 'https://www.redcargamovil.com/Account/Login.aspx',
+          'headers': {},
+          formData: {
+            'ctl00$MainContent$LoginUser$UserName': credentials.user,
+            'ctl00$MainContent$LoginUser$Password': credentials.password,
+            '__EVENTTARGET': 'ctl00$MainContent$LoginUser$LoginButton',
+            '__VIEWSTATE': '/wEPDwULLTEzMTM3NTkyMDBkZHW3+l8TNE6q++3leF+kC2JYTfJNToUZxyfYmo+/G0fX',
+            '__EVENTVALIDATION': '/wEdAAQTtll6F90chS77zpvlN6/brVJzD9epthGmOWrcxXKP7u1vquycB/s6+IJJa4hgd+gJC0fyV4ZBOIwKeEy7g7cRSLdjcdmQ/vpuQZ0oed9J08/T7i4Q++Qz4kSUwHwauZM='
+          },
+          resolveWithFullResponse: true,
+          simple: false
+        };
+        const response = await request(options);
+
+        try {
+          if (response.headers['set-cookie']) {
+            const cookies = response.headers['set-cookie'];
+            const cookiesString = cookies
+              .map((cookie: string) => cookie.split(';')[0])
+              .join('; ');
+            this.keyRecargas = cookiesString;
+          } else {
+            console.log("No cookies received");
+          }
+        } catch (error) {
+          console.error("Error occurred in login:", error);
+        }
+      }
+      const headers = {
+        'Cookie': this.keyRecargas,
+        'Content-Type': 'multipart/form-data; boundary=--------------------------330610164082089315997925',
+        ...data.getHeaders()
+      };
+      let ruta = '';
+      let idServicios = 0;
+      if (operadora == 'claro') {
+        ruta = '/Account/ServiciosTS.aspx?p=qAk0IKUhCSPtvSzNAHTZkzmxNAMxSgZAp+WTcAdbP8I%3d'
+        idServicios = 2331
+      } else if (operadora == 'cnt') {
+        idServicios = 2652
+        ruta = '/Account/ServiciosTS.aspx?p=SCMk+ho0xunmDs+4EtxLC3ksz8u3Q6Tjva6ySG+9iXo='
+      } else {
+        idServicios = 2505
+        ruta = '/Account/ServiciosTS.aspx?p=oFq06R7IZnGimpoNSjhSXlAB+mI9O1WXTsVwz7FH9Ug%3d'
+
+      }
+
+      const deudaHTML = await this.restClient.callService({
+        baseURL: "https://www.redcargamovil.com",
+        service: ruta,
+        method: 'post',
+        body: data,
+        headers,
+      });
+      const $ = cheerio.load(deudaHTML);
+
+      //console.log(deudaHTML.data);
+      const formAction = $('form').attr('action');
+
+      if (formAction.includes('Login.aspx')) {
+        this.keyRecargas = '';
+        return null;
+      }
+
+      // Crea un objeto para almacenar los datos del formulario
+      const formData: { [key: string]: any } = {};
+      $('form input').each((_: any, input: any) => {
+        const name = $(input).attr('name');
+        const value = $(input).attr('value') || '';
+        if (name) {
+          formData[name] = value;
+        }
+      });
+      formData['ctl00$MainContent$cboOperador'] = idServicios; //cnt 2652
+      formData['ctl00$MainContent$txtReferencia1'] = identificacion;
+
+      // Imprime los datos del formulario
+
+
+      const deudaHTMLs = await this.restClient.callService({
+        baseURL: "https://www.redcargamovil.com",
+        service: '/Account/ServiciosTS.aspx?' + formAction.split('?')[1],
+        method: 'post',
+        body: formData,
+        headers,
+      });
+
+      const $$ = cheerio.load(deudaHTMLs);
+
+      const errorMsg = $$('#MainContent_lblMsgError').text().trim();
+      const valor = $$('#MainContent_lblValorPendiente').text().trim();
+
+      // Extraer la comisión
+      const nombre = $$('#MainContent_lblNombreCliente').text().trim();
+
+      console.log('Valor:', valor);       // Salida esperada: 10.72
+      console.log('nombre:', nombre); // Sal
+      console.log('Mensaje de error:', errorMsg);
+
+      if (!valor && !nombre && !errorMsg)
+        return null
+      return {
+        image: null,
+        data: null,
+        notify: errorMsg ? "**Número:** " + identificacion + "\n**Mensaje:** " + errorMsg : "**Número:** " + identificacion + "\n**Cliente:** " + nombre + "\n**Deuda**: " + valor,
+      };
+    } catch (err) {
+      this.keyRecargas = '';
+      console.log(identificacion, err.message);
+      return null;
+    }
+  }
+
 }
