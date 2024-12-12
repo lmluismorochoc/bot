@@ -100,10 +100,10 @@ export default class BotController {
         const actualTime = moment().tz(timezone);
         const startTime = moment()
           .tz(timezone)
-          .set({ hour: 0, minute: 0, second: 0, millisecond: 0 });
+          .set({ hour: 6, minute: 0, second: 0, millisecond: 0 });
         const endTime = moment()
           .tz(timezone)
-          .set({ hour: 24, minute: 0, second: 0, millisecond: 0 });
+          .set({ hour: 21, minute: 0, second: 0, millisecond: 0 });
 
         if (actualTime.isAfter(endTime) || actualTime.isBefore(startTime)) {
           this.numPeticionesConsultas = 0;
@@ -114,7 +114,7 @@ export default class BotController {
           await this.telegramService.sendMessage({
             bot_name: BOT_NAMES.REPORTER,
             chatId: [chatId, 1356515853],
-            response: 'El horario de respuesta es de 08:00 a 21:00',
+            response: 'El horario de respuesta es de 06:00 a 21:00',
           });
           return resolve(true);
         }
@@ -255,7 +255,7 @@ export default class BotController {
 
         this.numPeticionesConsultas++;
         const servicios = {
-          // deudas: (c: string, o: string) => this.DeudaFinder(c, o),
+          deudas: (c: string, o: string) => this.DeudaFinder(c, o),
           claro: (c: string, o: string) => this.DeudaFinderRecargas(c, o),
           cnt: (c: string, o: string) => this.DeudaFinderRecargas(c, o),
           movistar: (c: string, o: string) => this.DeudaFinderRecargas(c, o),
