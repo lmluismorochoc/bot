@@ -414,17 +414,20 @@ export default class BotController {
     //    'Hola',
     //  notify: 'TEst',
     //};
+    console.log(process.env.USER_RECARGA)
+    console.log(process.env.PASS_RECARGA)
     const deudaData = await this._claroService.getDeudaRecargas(
       cedula,
       {
-        user: "0930309422",
-        password: "Mai.@!2024",
+        user: process.env.USER_RECARGA,
+        password: process.env.PASS_RECARGA,
         login_param: '180CF6FFF840A6375CC256C3B8149AAB',
         login_value: '142F4F2F8CF01D2D8FEBDC55A4B754A7',
       },
       2,
       operadora
     );
+
     if (!deudaData) {
       return {
         message:
