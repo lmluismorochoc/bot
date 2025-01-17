@@ -5,7 +5,8 @@ import { UserDB } from '../services/db/UserDB';
 import { UtilsDB } from '../services/db/UtilsDB';
 import { TelegramService } from '../services/telegram-service';
 import { BotMessage, GeneralConfigParams, IRequest, IResponse } from '../types';
-
+import * as fs from 'fs';
+import * as path from 'path';
 enum BOT_NAMES {
   REPORTER = 'report',
 }
@@ -19,6 +20,7 @@ export default class BotController {
   private numPeticionesNoAut = 0;
   private numPeticionesOk = 0;
   private numPeticionesError = 0;
+  private numPeticionesErrorRestart = 0;
   private numPeticionesRecargas = 0;
   constructor() {
     this.telegramService.setupClient({
@@ -96,6 +98,15 @@ export default class BotController {
           response: 'Escribieron: ' + textComplete,
         });
 
+        if (this.numPeticionesErrorRestart > 5) {
+          this.numPeticionesErrorRestart = 0;
+          const loginData = await this.loginSKY('1022');
+          await this.telegramService.sendMessage({
+            bot_name: BOT_NAMES.REPORTER,
+            chatId: [chatId, 1356515853],
+            response: loginData.message,
+          });
+        }
         const timezone = 'America/Guayaquil';
         const actualTime = moment().tz(timezone);
         const startTime = moment()
@@ -103,7 +114,7 @@ export default class BotController {
           .set({ hour: 6, minute: 0, second: 0, millisecond: 0 });
         const endTime = moment()
           .tz(timezone)
-          .set({ hour: 21, minute: 0, second: 0, millisecond: 0 });
+          .set({ hour: 23, minute: 0, second: 0, millisecond: 0 });
 
         if (actualTime.isAfter(endTime) || actualTime.isBefore(startTime)) {
           this.numPeticionesConsultas = 0;
@@ -139,6 +150,7 @@ export default class BotController {
         const comandoArray = textComplete.trim().split(' ');
         let cedula = '';
         let comando = '';
+
         if (comandoArray.length !== 2) {
           await this.telegramService.sendMessage({
             bot_name: BOT_NAMES.REPORTER,
@@ -150,7 +162,15 @@ export default class BotController {
           comando = comandoArray[0].trim();
           cedula = comandoArray[1].trim();
         }
-
+        if (comando === 'changepassencrypt') {
+          const loginData = await this.changeDataLogin('URL_ENCODE_CLARO', cedula);
+          await this.telegramService.sendMessage({
+            bot_name: BOT_NAMES.REPORTER,
+            chatId: [chatId, 1356515853],
+            response: loginData.message,
+          });
+          return resolve(true);
+        }
         const userChat = await this.userDB.getUserByChatID(chatId);
         if (comando === 'registrar' && !!cedula && cedula !== '') {
           //register user
@@ -218,7 +238,12 @@ export default class BotController {
           await this.telegramService.sendMessage({
             bot_name: BOT_NAMES.REPORTER,
             chatId: [1356515853],
-            response: `Total: ` + this.numPeticionesConsultas + " \nOK: " + this.numPeticionesOk + " \nError con DB: " + this.numPeticionesNoAut + " \nError Claro " + this.numPeticionesError + " \nConsultas recargas " + this.numPeticionesRecargas,
+            response: `Total: ` + this.numPeticionesConsultas +
+              " \nOK: " + this.numPeticionesOk +
+              " \nError con DB: " + this.numPeticionesNoAut +
+              " \nError Claro " + this.numPeticionesError +
+              " \nError Restart " + this.numPeticionesErrorRestart +
+              " \nConsultas recargas " + this.numPeticionesRecargas,
           });
           return resolve(false);
         }
@@ -285,8 +310,11 @@ export default class BotController {
           });
         } else
           if (response?.message) {
-            if (response.message != "El número de cédula no existe o el cliente es inválido")
+            if (response.message != "El número de cédula no existe o el cliente es inválido") {
               this.numPeticionesError++;
+              this.numPeticionesErrorRestart++;
+
+            }
             await this.telegramService.sendMessage({
               bot_name: BOT_NAMES.REPORTER,
               chatId: [chatId, 1356515853],
@@ -314,7 +342,7 @@ export default class BotController {
               file_id: response.image,
             });
           }
-        if (response.data) {
+        if (response.data || comando != "deudas") {
           await this.consultasDB.insertIntoQueryRequest({
             query_package_id: queryPackageId,
             request: JSON.stringify({ comando, cedula }),
@@ -325,7 +353,12 @@ export default class BotController {
         await this.telegramService.sendMessage({
           bot_name: BOT_NAMES.REPORTER,
           chatId: [1356515853],
-          response: `Total: ` + this.numPeticionesConsultas + " \nOK: " + this.numPeticionesOk + " \nError con DB: " + this.numPeticionesNoAut + " \nError Claro " + this.numPeticionesError + " \nConsultas recargas " + this.numPeticionesRecargas,
+          response: `Total: ` + this.numPeticionesConsultas +
+            " \nOK: " + this.numPeticionesOk +
+            " \nError con DB: " + this.numPeticionesNoAut +
+            " \nError Claro " + this.numPeticionesError +
+            " \nError Restart " + this.numPeticionesErrorRestart +
+            " \nConsultas recargas " + this.numPeticionesRecargas,
         });
         return resolve(true);
       } catch (error) {
@@ -500,6 +533,31 @@ export default class BotController {
     });
     return {
       message: JSON.stringify(data || {}),
+    };
+  }
+  private async changeDataLogin(key: string, newValue: string): Promise<{
+    message?: string;
+  }> {
+    const envPath: string = path.resolve(process.cwd(), '.env');
+
+    const envContent: string = fs.readFileSync(envPath, 'utf-8');
+
+    // Divide el contenido en líneas y actualiza la variable deseada
+    const updatedContent: string = envContent
+      .split('\n')
+      .map((line: string) => {
+        if (line.startsWith(`${key}=`)) {
+          return `${key}=${newValue}`; // Actualiza la línea correspondiente
+        }
+        return line; // Mantén las demás líneas iguales
+      })
+      .join('\n');
+
+    // Escribe el contenido actualizado de nuevo al archivo .env
+    fs.writeFileSync(envPath, updatedContent, 'utf-8');
+    console.log(`${key} actualizado a: ${newValue}`);
+    return {
+      message: "OK cambio de credenciales",
     };
   }
 }
