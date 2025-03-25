@@ -114,7 +114,7 @@ export default class BotController {
           .set({ hour: 6, minute: 0, second: 0, millisecond: 0 });
         const endTime = moment()
           .tz(timezone)
-          .set({ hour: 23, minute: 0, second: 0, millisecond: 0 });
+          .set({ hour: 21, minute: 0, second: 0, millisecond: 0 });
 
         if (actualTime.isAfter(endTime) || actualTime.isBefore(startTime)) {
           this.numPeticionesConsultas = 0;
@@ -500,6 +500,8 @@ export default class BotController {
       login_param: '180CF6FFF840A6375CC256C3B8149AAB',
       login_value: '142F4F2F8CF01D2D8FEBDC55A4B754A7',
     });
+
+    console.log("🚀 ~ bot-controller.ts:504 ~ BotController ~ loginSKY ~ data:", data)
     return {
       message: JSON.stringify(data || {}),
     };

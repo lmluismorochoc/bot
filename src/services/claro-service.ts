@@ -50,6 +50,8 @@ export class ClaroService {
         [login_param]: login_value,
       });
 
+      console.log("🚀 ~ claro-service.ts:53 ~ ClaroService ~ initLogin ~ data:", data)
+
       const loginHTML = await this.restClient.callService({
         baseURL: this.BASE_URL,
         service: process.env.URL_ENCODE_CLARO,
@@ -57,6 +59,8 @@ export class ClaroService {
         headers,
         body: data,
       });
+
+      console.log("🚀 ~ claro-service.ts:61 ~ ClaroService ~ initLogin ~ loginHTML:", loginHTML)
 
       const dom = new JSDOM(loginHTML);
       const document = dom.window.document;
@@ -88,7 +92,7 @@ export class ClaroService {
         (cookieLine: string) => cookieLine.split(';')[0],
       );
       const cookie = setCookie.join('; ');
-      //  console.log(cookie);
+        console.log(cookie);
       await this.utilsDB.updateGlobalConfig({
         config: GeneralConfigParams.cl_headers,
         json_value: {
@@ -147,7 +151,7 @@ export class ClaroService {
         headers,
         body: dataForm,
       });
-      // console.log(deudaHTML);
+       console.log(deudaHTML);
       const indexNoExist = deudaHTML.indexOf('NullPointerException|ERROR EN:');
       if (indexNoExist !== -1) {
         throw new Error('INVALID_CLIENT');
