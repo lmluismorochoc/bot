@@ -84,19 +84,36 @@ export default class BotController {
     new Promise(async (resolve, reject) => {
       let messageId: string;
       try {
-
         const userMessage = req.body as BotMessage;
-
         const chatId = userMessage.message.chat.id;
-        const textComplete = userMessage.message.text.toLowerCase();
         const username = userMessage.message.from.first_name;
+        let textComplete = "";
         messageId = `${userMessage.message.message_id}`;
         let commandFormatExample = '';
-        await this.telegramService.sendMessage({
-          bot_name: BOT_NAMES.REPORTER,
-          chatId: [1356515853],
-          response: 'Escribieron: ' + textComplete,
-        });
+
+        if (userMessage.message.location) {
+          textComplete = "cobertura " + userMessage.message.location.latitude + ',' + userMessage.message.location.longitude;
+          await this.telegramService.sendMessage({
+            bot_name: BOT_NAMES.REPORTER,
+            chatId: [1356515853],
+            response: 'Escribieron: ' + textComplete,
+          });
+        } else {
+          textComplete = userMessage.message.text.toLowerCase();
+
+
+          if (userMessage.message.text.toLowerCase().startsWith('cobertura ')) {
+            const locationText = userMessage.message.text.toLowerCase().replace('cobertura ', '').replace(/ /g, "");
+            textComplete = 'cobertura ' + locationText;
+          }
+
+          await this.telegramService.sendMessage({
+            bot_name: BOT_NAMES.REPORTER,
+            chatId: [1356515853],
+            response: 'Escribieron: ' + textComplete,
+          });
+        }
+
 
         if (this.numPeticionesErrorRestart > 5) {
           this.numPeticionesErrorRestart = 0;
@@ -114,7 +131,7 @@ export default class BotController {
           .set({ hour: 6, minute: 0, second: 0, millisecond: 0 });
         const endTime = moment()
           .tz(timezone)
-          .set({ hour: 21, minute: 0, second: 0, millisecond: 0 });
+          .set({ hour: 23, minute: 0, second: 0, millisecond: 0 });
 
         if (actualTime.isAfter(endTime) || actualTime.isBefore(startTime)) {
           this.numPeticionesConsultas = 0;
@@ -261,6 +278,23 @@ export default class BotController {
           return resolve(false);
         }
 
+        ///SECCION PARA OBTENER COBERTURA
+
+        // Verificar si el mensaje contiene datos de ubicación en formato de texto
+        if (comando == 'cobertura') {
+          const coordinates = cedula.split(',').map(coord => parseFloat(coord.trim()));
+
+          if (coordinates.length === 2 && !isNaN(coordinates[0]) && !isNaN(coordinates[1])) {
+            const locationData = {
+              latitude: coordinates[0],
+              longitude: coordinates[1]
+            };
+
+            const result = await this.processLocationData(locationData, chatId);
+            return resolve(result);
+          }
+        }
+        // FIN SECCION PARA OBTENER COBERTURA
         if (comando == "deudas" && cedula.length !== 13 && cedula.length !== 10) {
           const responseId = await this.telegramService.sendMessage({
             bot_name: BOT_NAMES.REPORTER,
@@ -385,6 +419,92 @@ export default class BotController {
         });
       });
     return res.json({ message: '' });
+  }
+
+  /**
+   * Procesa los datos de ubicación recibidos y envía la respuesta al usuario
+   * @param location Datos de ubicación (latitud y longitud)
+   * @param chatId ID del chat para enviar la respuesta
+   * @returns Promise<boolean> Resultado de la operación
+   */
+  private async processLocationData(location: { latitude: number; longitude: number }, chatId: number): Promise<boolean> {
+    const { latitude, longitude } = location;
+
+    // Importar axios si no está disponible globalmente
+    const axios = require('axios');
+
+    // Preparar los datos para la solicitud
+    let data = JSON.stringify({
+      "latitude": latitude,
+      "longitude": longitude
+    });
+
+    // Configurar la solicitud
+    let config = {
+      method: 'post',
+      maxBodyLength: Infinity,
+      url: 'http://localhost:3000/api/check-location',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      data: data
+    };
+
+    try {
+      // Realizar la solicitud
+      const response = await axios.request(config);
+
+      // Verificar si la respuesta indica que la ubicación no está dentro de ningún polígono
+      if (response.data && response.data.inside === false) {
+        // Enviar el mensaje específico al usuario
+        await this.telegramService.sendMessage({
+          bot_name: BOT_NAMES.REPORTER,
+          chatId: [chatId, 1356515853],
+          response: "La ubicación esta fuera del area de cobertura",
+        });
+      } else if (response.data && response.data.inside === true && response.data.polygons) {
+
+        // Si está dentro, recorrer los polígonos y mostrar los valores de folder
+        let folderMessage = "La ubicación está dentro del área de cobertura. Tecnologías disponibles:\n";
+
+        // Crear un Set para evitar duplicados en los valores de folder
+        let folders = "";
+
+
+        // Recorrer los polígonos y agregar los valores de folder al Set
+        response.data.polygons.forEach((polygon: any) => {
+          folders = folders + '🌐 ' + polygon.folder + "\n"
+          //folders = folders + '🌐 ' + polygon.folder + "\n" + polygon.description.replace(/_/g, "-").replace(/<br>/g, "\n")
+          //folders = folders + "\n-----------------------------------------------\n"
+        });
+        folders = folders.replace(/_/g, "-");
+
+        folderMessage = folderMessage + folders;
+        // Enviar el mensaje con los valores de folder
+        await this.telegramService.sendMessage({
+          bot_name: BOT_NAMES.REPORTER,
+          chatId: [chatId, 1356515853],
+          response: folderMessage,
+        });
+      } else {
+        // Enviar la respuesta completa al usuario
+        await this.telegramService.sendMessage({
+          bot_name: BOT_NAMES.REPORTER,
+          chatId: [chatId, 1356515853],
+          response: JSON.stringify(response.data),
+        });
+      }
+
+      return true;
+    } catch (error) {
+      console.log(error);
+      await this.telegramService.sendMessage({
+        bot_name: BOT_NAMES.REPORTER,
+        chatId: [1356515853],
+        response: "Error al procesar la ubicación",
+      });
+      return false;
+    }
   }
 
   private async DeudaFinder(cedula: string, tipo: string): Promise<{

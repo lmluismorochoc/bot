@@ -13,7 +13,7 @@ const limiter = rateLimit({
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
   message:
     'Too many accounts created from this IP, please try again after an 1 minute',
-});
+}); 
 
 import router from './routes';
 class App {

@@ -50,7 +50,6 @@ export class ClaroService {
         [login_param]: login_value,
       });
 
-      console.log("🚀 ~ claro-service.ts:53 ~ ClaroService ~ initLogin ~ data:", data)
 
       const loginHTML = await this.restClient.callService({
         baseURL: this.BASE_URL,
@@ -60,7 +59,6 @@ export class ClaroService {
         body: data,
       });
 
-      console.log("🚀 ~ claro-service.ts:61 ~ ClaroService ~ initLogin ~ loginHTML:", loginHTML)
 
       const dom = new JSDOM(loginHTML);
       const document = dom.window.document;

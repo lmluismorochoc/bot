@@ -61,6 +61,10 @@ export interface BotMessage {
       last_name: string;
       type: string;
     };
+    location?: {
+      latitude: number;
+      longitude: number;
+    }
     date: number;
     text: string;
   };
